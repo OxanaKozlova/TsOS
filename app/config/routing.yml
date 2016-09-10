@@ -1,3 +1,7 @@
+tsos_image_processing:
+    resource: "@TsosImageProcessingBundle/Resources/config/routing.yml"
+    prefix:   /
+
 app:
     resource: "@AppBundle/Controller/"
     type:     annotation
