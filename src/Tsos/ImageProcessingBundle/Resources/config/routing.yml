@@ -1,0 +1,3 @@
+tsos_image_processing_homepage:
+    path:     /
+    defaults: { _controller: TsosImageProcessingBundle:Default:index }
