@@ -9,6 +9,7 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Tsos\ImageProcessingBundle\Entity\Image;
 use Tsos\ImageProcessingBundle\Form\ImageType;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
+use ITM\ImagePreviewBundle\Resolver\PathResolver;
 
 /**
  * Image controller.
@@ -137,5 +138,43 @@ class ImageController extends Controller
             ->setMethod('DELETE')
             ->getForm()
         ;
+    }
+
+    public function getPhotoUrl($id)
+    {
+        $em = $this->getDoctrine()->getManager();
+        $image = $em->getRepository('TsosImageProcessingBundle:Image')->findOneBy(['id' => $id]);
+        $url = $this->get('itm.file.preview.path.resolver')->getUrl($image, $image->getImage());
+        return $url;
+    }
+
+    /**
+     * @Route("/{id}/show_bar_chart", name="image_show_bar_chart")
+     * @Method("GET")
+     */
+    public function showBarChart(Image $image)
+    {
+        $path = $this->get('itm.file.preview.path.resolver')->getPath($image, $image->getImage());
+        $rgbArray = $this->getRgbArray($path);
+    }
+
+    public function getRgbArray($path)
+    {
+        $size = getimagesize($path);
+        $width = $size[0];
+        $height = $size[1];
+
+        $image = imagecreatefrompng($path); //возвращает идентификатор изображения
+
+        $pixels = [];
+        $colors = [];
+        for ($i = 0; $i < $width; $i++) {
+            for ($j = 0; $j < $height; $j++) {
+                $pixels[$i][$j] = imagecolorat($image, $i, $j); //получение цвета пикселя
+                $colors[$i][$j] = imagecolorsforindex($image, $pixels[$i][$j]); //получение rgb массива для каждого пикселя
+            }
+        }
+        
+        return $colors;
     }
 }
