@@ -1,0 +1,15 @@
+itm_image_preview:
+    upload_path: uploads
+    upload_url:  /uploads
+    entities:
+        TsosImageProcessingBundle:
+            Image:
+                image: {formats: [preview]}
+
+itm_file_preview:
+    upload_path: uploads
+    upload_url:  /uploads
+    entities:
+        TsosImageProcessingBundle:
+            Image:
+                image: ~

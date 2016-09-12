@@ -1,0 +1,14 @@
+.full-post-img {
+    width: 100%;
+}
+
+.phimagebuilder_label_border {
+    border:                     5px solid #ffffff;
+    overflow:                   hidden;
+}
+
+.preview_image {
+    background-size: cover;
+    height: 350px;
+    width: 500px
+}

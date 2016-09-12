@@ -1,0 +1,9 @@
+{% extends 'image/index.html.twig' %}
+
+{% block field%}
+    <div>
+        {% if image | itm_file_exists('image') %}
+            <img src="{{ object | itm_ipw_path('image') | imagine_filter('preview') }}" />
+        {% endif %}
+    </div>
+{% endblock %}

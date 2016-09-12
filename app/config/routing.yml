@@ -1,6 +1,13 @@
+tsos_image_processing_image:
+    resource: "@TsosImageProcessingBundle/Controller/ImageController.php"
+    type:     annotation
+
 tsos_image_processing:
     resource: "@TsosImageProcessingBundle/Resources/config/routing.yml"
     prefix:   /
 
 _liip_imagine:
     resource: "@LiipImagineBundle/Resources/config/routing.xml"
+
+_itm_preview:
+    resource: "@ITMImagePreviewBundle/Resources/config/routing.yml"
