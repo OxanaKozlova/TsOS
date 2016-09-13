@@ -154,6 +154,7 @@ class ImageController extends Controller
         ));
     }
 
+
     public function createBarChart($bright)
     {
         $boundary_value = $this->getBoundaryValue($bright);
@@ -211,6 +212,27 @@ class ImageController extends Controller
         return $bright;
     }
 
+    public function getBrightnessMatrix(Image $image)
+    {
+        $path = $this->get('itm.file.preview.path.resolver')->getPath($image, $image->getImage());
+
+        $rgbArray = $this->getRgbArray($path);
+        $bright = [];
+        $i = 0;
+        foreach ($rgbArray as $rgbRow) {
+            $j = 0;
+            foreach ($rgbRow as $rgb) {
+                $bright[$i][$j] = 0.3 * $rgb['red'] + 0.59 * $rgb['green'] + 0.11 * $rgb['blue'];
+                $j ++;
+            }
+            $i++;
+        }
+
+        return $bright;
+    }
+
+
+
     public function getRgbArray($path)
     {
         $size = getimagesize($path);
@@ -236,4 +258,60 @@ class ImageController extends Controller
 
         return $colors;
     }
+
+    private function createImage($bright){
+
+    }
+    /**
+     * @Route("/{id}/filter", name="image_filter")
+     * @Method("GET")
+     */
+    public function filterAction(Image $image){
+        $this->createFilter($image);
+        $deleteForm = $this->createDeleteForm($image);
+
+        return $this->redirectToRoute('image_index');
+
+
+    }
+
+    public function createFilter(Image $image){
+        $bright = $this->getBrightnessMatrix($image);
+        $bright_count = count($bright);
+        $f = [];
+        for($i = 0; $i < $bright_count; $i++) {
+            $line_count = count($bright[$i]);
+            for($j = 0; $j < $line_count; $j++ ){
+                $i1 = -1;
+                $i2 = 1;
+                $j1 = -1;
+                $j2 = 1;
+                if($i <= 0){
+                    $i1 = 0;
+                }
+                if($i >=($bright_count-1)){
+                    $i2 = 0;
+                }
+                if($j <= 0){
+                    $j1 = 0;
+                }
+                if($j >=($line_count - 1)){
+                    $j2 = 0;
+                }
+                $f[$i][$j] =
+                    (-1) * $bright[$i+$i1][$j+$j1] + (-1) * $bright[$i+$i1][$j] + (-1)*$bright[$i+$i1][$j+$j2]
+                    +(-1) * $bright[$i][$j+$j1] + 9 * $bright[$i][$j] + (-1) * $bright[$i][$j+$j2]
+                    +(-1) * $bright[$i+$i2][$j+$j1] + (-1) * $bright[$i+$i2][$j] + (-1) * $bright[$i+$i2][$j+$j2];
+
+
+            }
+
+
+
+        }
+        
+        return $f;
+
+    }
+
 }
