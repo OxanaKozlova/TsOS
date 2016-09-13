@@ -24,7 +24,10 @@
                     <ul>
                         {#{{ dump(path('image_show_bar_chart', { 'id': image.id })) }}#}
                         <li>
-                            <a href="{{ path('image_show_bar_chart', { 'id': image.id }) }}">show bar chart</a>
+                            <a href="{{ path('image_show_bright_bar_chart', { 'id': image.id }) }}">show bar chart</a>
+                        </li>
+                        <li>
+                            <a href="{{ path('image_create_gamma_correction', { 'id': image.id }) }}">get correction</a>
                         </li>
                         <li>
                             <a href="{{ path('image_show', { 'id': image.id }) }}">show</a>

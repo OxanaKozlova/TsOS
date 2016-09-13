@@ -11,6 +11,9 @@ use Tsos\ImageProcessingBundle\Form\ImageType;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
 use ITM\ImagePreviewBundle\Resolver\PathResolver;
 use Ob\HighchartsBundle\Highcharts\Highchart;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\SubmitType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 
 /**
  * Image controller.
@@ -24,6 +27,8 @@ class ImageController extends Controller
     protected $width;
 
     protected $height;
+
+    protected $bright = null;
 
     /**
      * Lists all Image entities.
@@ -129,13 +134,24 @@ class ImageController extends Controller
     }
 
     /**
-     * @Route("/{id}/show_bar_chart", name="image_show_bar_chart")
+     * @Route("/{id}/show_bright_bar_chart", name="image_show_bright_bar_chart")
      * @Method("GET")
      */
-    public function showBarChart(Image $image)
+    public function showBrightBarChartAction(Image $image)
     {
-        $bright = $this->getBrightness($image);
+        if($this->bright === null) {
+            $this->bright = $this->getBrightness($image);
+        }
 
+        $chart = $this->getBarChart($this->bright);
+        return $this->render('image/show_bright_bar_chart.html.twig', array(
+            'chart' => $chart,
+            'image' => $image,
+        ));
+    }
+
+    public function getBarChart($bright)
+    {
         $series = array(
             array(
                 "data" => $this->createBarChart($bright),
@@ -147,11 +163,7 @@ class ImageController extends Controller
         $ob->xAxis->categories($this->getBoundaryValue($bright));
         $ob->title->text('Гистограмма');
         $ob->series($series);
-
-        return $this->render('image/show_bar_chart.html.twig', array(
-            'chart' => $ob,
-            'image' => $image,
-        ));
+        return $ob;
     }
 
     public function createBarChart($bright)
@@ -235,5 +247,69 @@ class ImageController extends Controller
         }
 
         return $colors;
+    }
+
+    /**
+     * @Route("/{id}/create_gamma_correction", name="image_create_gamma_correction")
+     */
+    public function createGammaCorrectionAction(Request $request)
+    {
+        $data_form = array();
+        $form = $this->createFormBuilder($data_form)
+            ->add('c', TextType::class)
+            ->add('y', TextType::class)
+            ->add('id', HiddenType::class)
+            ->add('save', SubmitType::class, array('label' => 'Gamma Correction'))
+            ->getForm();
+        $form['id']->setData($request->get('id'));
+        if ($request->isMethod('POST')) {
+            $form->handleRequest($request);
+            $data = $form->getData();
+            $response = $this->forward('TsosImageProcessingBundle:Image:showGammaCorrection', array(
+                'id' => $data['id'],
+                'c' => (float)$data['c'],
+                'y' => (float)$data['y'],
+            ));
+            //return $this->redirectToRoute('bar_chart', array("random" => 5));
+            return$response;
+        }
+        return $this->render('image/create_gamma_correction.html.twig', [
+            'form' => $form->createView()
+        ]);
+    }
+
+    /**
+     * @Route("/{id}/show_gamma_correction", name="image_show_gamma_correction")
+     * @Method("GET")
+     */
+    public function showGammaCorrectionAction(Request $request, $id, $c, $y)
+    {
+        $image = $this
+            ->getDoctrine()
+            ->getManager()
+            ->getRepository('TsosImageProcessingBundle:Image')
+            ->findOneBy(['id' => $id]);
+
+        $chart = $this->getBarChart($this->setGammaCorrection($c, $y, $image));
+        return $this->render('image/show_gamma_correction.html.twig', array(
+            'chart' => $chart,
+            'image' => $image,
+        ));
+    }
+
+    public function setGammaCorrection($c, $y, $image)
+    {
+        if($this->bright === null) {
+            $this->bright = $this->getBrightness($image);
+        }
+
+        $bright_size = count($this->bright);
+
+        $gamma = [];
+        for($i = 0; $i < $bright_size; $i++) {
+            $gamma[] = $c * pow($this->bright[$i], $y);
+        }
+
+        return $gamma;
     }
 }
