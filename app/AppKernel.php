@@ -19,6 +19,7 @@ class AppKernel extends Kernel
             new Liip\ImagineBundle\LiipImagineBundle(),
             new ITM\FilePreviewBundle\ITMFilePreviewBundle(),
             new ITM\ImagePreviewBundle\ITMImagePreviewBundle(),
+            new Ob\HighchartsBundle\ObHighchartsBundle(),
 
             new Tsos\ImageProcessingBundle\TsosImageProcessingBundle(),
         ];

@@ -10,6 +10,7 @@ use Tsos\ImageProcessingBundle\Entity\Image;
 use Tsos\ImageProcessingBundle\Form\ImageType;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Template;
 use ITM\ImagePreviewBundle\Resolver\PathResolver;
+use Ob\HighchartsBundle\Highcharts\Highchart;
 
 /**
  * Image controller.
@@ -18,6 +19,12 @@ use ITM\ImagePreviewBundle\Resolver\PathResolver;
  */
 class ImageController extends Controller
 {
+    const SIZE = 256;
+
+    protected $width;
+
+    protected $height;
+
     /**
      * Lists all Image entities.
      *
@@ -78,33 +85,6 @@ class ImageController extends Controller
     }
 
     /**
-     * Displays a form to edit an existing Image entity.
-     *
-     * @Route("/{id}/edit", name="image_edit")
-     * @Method({"GET", "POST"})
-     */
-    public function editAction(Request $request, Image $image)
-    {
-        $deleteForm = $this->createDeleteForm($image);
-        $editForm = $this->createForm('Tsos\ImageProcessingBundle\Form\ImageType', $image);
-        $editForm->handleRequest($request);
-
-        if ($editForm->isSubmitted() && $editForm->isValid()) {
-            $em = $this->getDoctrine()->getManager();
-            $em->persist($image);
-            $em->flush();
-
-            return $this->redirectToRoute('image_edit', array('id' => $image->getId()));
-        }
-
-        return $this->render('image/edit.html.twig', array(
-            'image' => $image,
-            'edit_form' => $editForm->createView(),
-            'delete_form' => $deleteForm->createView(),
-        ));
-    }
-
-    /**
      * Deletes a Image entity.
      *
      * @Route("/{id}", name="image_delete")
@@ -154,27 +134,106 @@ class ImageController extends Controller
      */
     public function showBarChart(Image $image)
     {
+        $bright = $this->getBrightness($image);
+
+        $series = array(
+            array(
+                "data" => $this->createBarChart($bright),
+                'color' => '#008080')
+        );
+        $ob = new Highchart();
+        $ob->chart->renderTo('linechart');  // The #id of the div where to render the chart
+        $ob->chart->type('column');
+        $ob->xAxis->categories($this->getBoundaryValue($bright));
+        $ob->title->text('Гистограмма');
+        $ob->series($series);
+
+        return $this->render('image/show_bar_chart.html.twig', array(
+            'chart' => $ob,
+            'image' => $image,
+        ));
+    }
+
+    public function createBarChart($bright)
+    {
+        $boundary_value = $this->getBoundaryValue($bright);
+
+        $bar_chart = [];
+        for($i = 0; $i <= self::SIZE; $i++) {
+            $bar_chart[] = 0;
+        }
+
+        $bright_array_size = count($bright);
+
+        for($i = 1; $i < self::SIZE; $i++) {
+            for($j = 0; $j < $bright_array_size; $j++){
+                if($bright[$j] <= $boundary_value[$i] && $bright[$j] >= $boundary_value[$i-1]){
+                    $bar_chart[$i-1] ++;
+                }
+            }
+        }
+        return $bar_chart;
+    }
+
+    private function getBoundaryValue($bright)
+    {
+        $min = min($bright);
+        $max = max($bright);
+        $boundary_value = [];
+        $r = $max - $min;
+        $delta = (float)$r / (float)self::SIZE;
+
+        if( $delta == 0) {
+            $boundary_value[] = min($bright);
+            return $boundary_value;
+        }
+
+        for ($i = $min; $i <= $max; $i += $delta) {
+            $boundary_value[] = $i;
+        }
+        $boundary_value[] = $max;
+
+        return $boundary_value;
+    }
+
+    public function getBrightness(Image $image)
+    {
         $path = $this->get('itm.file.preview.path.resolver')->getPath($image, $image->getImage());
+
         $rgbArray = $this->getRgbArray($path);
+        $bright = [];
+        foreach ($rgbArray as $rgbRow) {
+            foreach ($rgbRow as $rgb) {
+                $bright[] = 0.3 * $rgb['red'] + 0.59 * $rgb['green'] + 0.11 * $rgb['blue'];
+            }
+        }
+
+        return $bright;
     }
 
     public function getRgbArray($path)
     {
         $size = getimagesize($path);
-        $width = $size[0];
-        $height = $size[1];
+        $this->width = $size[0];
+        $this->height = $size[1];
 
-        $image = imagecreatefrompng($path); //возвращает идентификатор изображения
+        $image = 0;
+        if (exif_imagetype($path) === IMAGETYPE_JPEG) {
+            $image = imagecreatefromjpeg($path);            //возвращает идентификатор изображения
+        }
+        elseif (exif_imagetype($path) === IMAGETYPE_PNG) {
+                $image = imagecreatefrompng($path);
+        }
 
         $pixels = [];
         $colors = [];
-        for ($i = 0; $i < $width; $i++) {
-            for ($j = 0; $j < $height; $j++) {
+        for ($i = 0; $i < $this->width; $i++) {
+            for ($j = 0; $j < $this->height; $j++) {
                 $pixels[$i][$j] = imagecolorat($image, $i, $j); //получение цвета пикселя
                 $colors[$i][$j] = imagecolorsforindex($image, $pixels[$i][$j]); //получение rgb массива для каждого пикселя
             }
         }
-        
+
         return $colors;
     }
 }
