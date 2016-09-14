@@ -30,6 +30,8 @@ class ImageController extends Controller
 
     protected $bright = null;
 
+    protected $rgbArray = null;
+
     /**
      * Lists all Image entities.
      *
@@ -125,12 +127,17 @@ class ImageController extends Controller
         ;
     }
 
-    public function getPhotoUrl($id)
+
+
+
+
+
+
+
+    public function getPath(Image $image)
     {
-        $em = $this->getDoctrine()->getManager();
-        $image = $em->getRepository('TsosImageProcessingBundle:Image')->findOneBy(['id' => $id]);
-        $url = $this->get('itm.file.preview.path.resolver')->getUrl($image, $image->getImage());
-        return $url;
+        $path = $this->get('itm.file.preview.path.resolver')->getPath($image, $image->getImage());
+        return $path;
     }
 
     /**
@@ -140,7 +147,9 @@ class ImageController extends Controller
     public function showBrightBarChartAction(Image $image)
     {
         if($this->bright === null) {
-            $this->bright = $this->getBrightness($image);
+            $path = $this->getPath($image);
+            $this->rgbArray = $this->getRgbArray($path);
+            $this->bright = $this->getBrightness($this->rgbArray);
         }
 
         $chart = $this->getBarChart($this->bright);
@@ -208,11 +217,8 @@ class ImageController extends Controller
         return $boundary_value;
     }
 
-    public function getBrightness(Image $image)
+    public function getBrightness($rgbArray)
     {
-        $path = $this->get('itm.file.preview.path.resolver')->getPath($image, $image->getImage());
-
-        $rgbArray = $this->getRgbArray($path);
         $bright = [];
         foreach ($rgbArray as $rgbRow) {
             foreach ($rgbRow as $rgb) {
@@ -239,12 +245,14 @@ class ImageController extends Controller
 
         $pixels = [];
         $colors = [];
-        for ($i = 0; $i < $this->width; $i++) {
-            for ($j = 0; $j < $this->height; $j++) {
-                $pixels[$i][$j] = imagecolorat($image, $i, $j); //получение цвета пикселя
-                $colors[$i][$j] = imagecolorsforindex($image, $pixels[$i][$j]); //получение rgb массива для каждого пикселя
+        for ($i = 0; $i < $this->height; $i++) {
+            for ($j = 0; $j < $this->width; $j++) {
+                $pixels[$j][$i] = imagecolorat($image, $j, $i); //получение цвета пикселя
+                $colors[$j][$i] = imagecolorsforindex($image, $pixels[$j][$i]); //получение rgb массива для каждого пикселя
             }
         }
+
+        $this->colors = $colors;
 
         return $colors;
     }
@@ -300,16 +308,39 @@ class ImageController extends Controller
     public function setGammaCorrection($c, $y, $image)
     {
         if($this->bright === null) {
-            $this->bright = $this->getBrightness($image);
+            $path = $this->getPath($image);
+            $this->rgbArray = $this->getRgbArray($path);
+            $this->bright = $this->getBrightness($this->rgbArray);
         }
 
-        $bright_size = count($this->bright);
-
-        $gamma = [];
-        for($i = 0; $i < $bright_size; $i++) {
-            $gamma[] = $c * pow($this->bright[$i], $y);
+        $gamma = $this->rgbArray;
+        for($i = 0; $i < $this->height; $i++) {
+            for($j = 0; $j < $this->width; $j++) {
+                $gamma[$j][$i]['red'] = $c * pow($this->rgbArray[$j][$i]['red'], $y);
+                $gamma[$j][$i]['green'] = $c * pow($this->rgbArray[$j][$i]['green'], $y);
+                $gamma[$j][$i]['blue'] = $c * pow($this->rgbArray[$j][$i]['blue'], $y);
+            }
         }
 
-        return $gamma;
+        $this->createImage($gamma);
+        return $this->getBrightness($gamma);
+    }
+
+    public function createImage($rgdArray)
+    {
+        $image = imagecreatetruecolor($this->width, $this->height);
+
+        for($i = 0; $i < $this->height; $i++) {
+            for($j = 0; $j < $this->width; $j++) {
+                imagesetpixel($image, $j, $i, imagecolorallocatealpha($image,
+                    $rgdArray[$j][$i]['red'],
+                    $rgdArray[$j][$i]['green'],
+                    $rgdArray[$j][$i]['blue'],
+                    $this->rgbArray[$j][$i]['alpha']
+                    ));
+            }
+        }
+
+        imagejpeg($image, '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/1.jpeg');
     }
 }
