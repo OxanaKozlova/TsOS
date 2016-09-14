@@ -24,13 +24,17 @@ class ImageController extends Controller
 {
     const SIZE = 256;
 
+    const GAMMA_FILENAME = '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/gamma.jpeg';
+
+    const FILTER_FILENAME = '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/filter.jpeg';
+
     protected $width;
 
     protected $height;
 
-    protected $bright = null;
+    protected $bright;
 
-    protected $rgbArray = null;
+    protected $rgbArray;
 
     /**
      * Lists all Image entities.
@@ -146,20 +150,18 @@ class ImageController extends Controller
      */
     public function showBrightBarChartAction(Image $image)
     {
-        if($this->bright === null) {
-            $path = $this->getPath($image);
-            $this->rgbArray = $this->getRgbArray($path);
-            $this->bright = $this->getBrightness($this->rgbArray);
-        }
+        $path = $this->getPath($image);
+        $this->rgbArray = $this->getRgbArray($path);
+        $this->bright = $this->getBrightnessMatrix($this->rgbArray);
 
-        $chart = $this->getBarChart($this->bright);
-        return $this->render('image/show_bright_bar_chart.html.twig', array(
+        $chart = $this->getBarChart($this->bright, 'Гистограмма яркости');
+        return $this->render('image/show_bar_chart.html.twig', array(
             'chart' => $chart,
             'image' => $image,
         ));
     }
 
-    public function getBarChart($bright)
+    public function getBarChart($bright, $title)
     {
         $series = array(
             array(
@@ -170,10 +172,11 @@ class ImageController extends Controller
         $ob->chart->renderTo('linechart');  // The #id of the div where to render the chart
         $ob->chart->type('column');
         $ob->xAxis->categories($this->getBoundaryValue($bright));
-        $ob->title->text('Гистограмма');
+        $ob->title->text($title);
         $ob->series($series);
         return $ob;
     }
+
 
     public function createBarChart($bright)
     {
@@ -184,12 +187,12 @@ class ImageController extends Controller
             $bar_chart[] = 0;
         }
 
-        $bright_array_size = count($bright);
-
         for($i = 1; $i < self::SIZE; $i++) {
-            for($j = 0; $j < $bright_array_size; $j++){
-                if($bright[$j] <= $boundary_value[$i] && $bright[$j] >= $boundary_value[$i-1]){
-                    $bar_chart[$i-1] ++;
+            for ($k = 0; $k < $this->height; $k++) {
+                for ($j = 0; $j < $this->width; $j++) {
+                    if ($bright[$k][$j] <= $boundary_value[$i] && $bright[$k][$j] >= $boundary_value[$i - 1]) {
+                        $bar_chart[$i - 1]++;
+                    }
                 }
             }
         }
@@ -198,14 +201,22 @@ class ImageController extends Controller
 
     private function getBoundaryValue($bright)
     {
-        $min = min($bright);
-        $max = max($bright);
+        $min_array = [];
+        $max_array = [];
+        foreach ($bright as $brightRow) {
+            $min_array[] = min($brightRow);
+            $max_array[] = max($brightRow);
+        }
+
+        $min = min($min_array);
+        $max = max($max_array);
+
         $boundary_value = [];
         $r = $max - $min;
         $delta = (float)$r / (float)self::SIZE;
 
         if( $delta == 0) {
-            $boundary_value[] = min($bright);
+            $boundary_value[] = $min;
             return $boundary_value;
         }
 
@@ -217,17 +228,33 @@ class ImageController extends Controller
         return $boundary_value;
     }
 
-    public function getBrightness($rgbArray)
+//    public function getBrightness($rgbArray)
+//    {
+//        $bright = [];
+//        foreach ($rgbArray as $rgbRow) {
+//            foreach ($rgbRow as $rgb) {
+//                $bright[] = 0.3 * $rgb['red'] + 0.59 * $rgb['green'] + 0.11 * $rgb['blue'];
+//            }
+//        }
+//
+//        return $bright;
+//    }
+
+    public function getBrightnessMatrix($rgbArray)
     {
         $bright = [];
-        foreach ($rgbArray as $rgbRow) {
-            foreach ($rgbRow as $rgb) {
-                $bright[] = 0.3 * $rgb['red'] + 0.59 * $rgb['green'] + 0.11 * $rgb['blue'];
+        for ($i = 0; $i < $this->height; $i++) {
+            for ($j = 0; $j < $this->width; $j++) {
+                $bright[$i][$j] = 0.3 * $rgbArray[$i][$j]['red']
+                    + 0.59 * $rgbArray[$i][$j]['green']
+                    + 0.11 * $rgbArray[$i][$j]['blue'];
             }
         }
 
         return $bright;
     }
+
+
 
     public function getRgbArray($path)
     {
@@ -247,12 +274,10 @@ class ImageController extends Controller
         $colors = [];
         for ($i = 0; $i < $this->height; $i++) {
             for ($j = 0; $j < $this->width; $j++) {
-                $pixels[$j][$i] = imagecolorat($image, $j, $i); //получение цвета пикселя
-                $colors[$j][$i] = imagecolorsforindex($image, $pixels[$j][$i]); //получение rgb массива для каждого пикселя
+                $pixels[$i][$j] = imagecolorat($image, $j, $i); //получение цвета пикселя
+                $colors[$i][$j] = imagecolorsforindex($image, $pixels[$i][$j]); //получение rgb массива для каждого пикселя
             }
         }
-
-        $this->colors = $colors;
 
         return $colors;
     }
@@ -278,7 +303,6 @@ class ImageController extends Controller
                 'c' => (float)$data['c'],
                 'y' => (float)$data['y'],
             ));
-            //return $this->redirectToRoute('bar_chart', array("random" => 5));
             return$response;
         }
         return $this->render('image/create_gamma_correction.html.twig', [
@@ -290,7 +314,7 @@ class ImageController extends Controller
      * @Route("/{id}/show_gamma_correction", name="image_show_gamma_correction")
      * @Method("GET")
      */
-    public function showGammaCorrectionAction(Request $request, $id, $c, $y)
+    public function showGammaCorrectionAction(Image $image, $id, $c, $y)
     {
         $image = $this
             ->getDoctrine()
@@ -298,8 +322,8 @@ class ImageController extends Controller
             ->getRepository('TsosImageProcessingBundle:Image')
             ->findOneBy(['id' => $id]);
 
-        $chart = $this->getBarChart($this->setGammaCorrection($c, $y, $image));
-        return $this->render('image/show_gamma_correction.html.twig', array(
+        $chart = $this->getBarChart($this->setGammaCorrection($c, $y, $image), 'Гистограмма гамма-коррекции');
+        return $this->render('image/show_bar_chart.html.twig', array(
             'chart' => $chart,
             'image' => $image,
         ));
@@ -307,40 +331,110 @@ class ImageController extends Controller
 
     public function setGammaCorrection($c, $y, $image)
     {
-        if($this->bright === null) {
-            $path = $this->getPath($image);
-            $this->rgbArray = $this->getRgbArray($path);
-            $this->bright = $this->getBrightness($this->rgbArray);
-        }
+        $path = $this->getPath($image);
+        $this->rgbArray = $this->getRgbArray($path);
+        $this->bright = $this->getBrightnessMatrix($this->rgbArray);
+
 
         $gamma = $this->rgbArray;
         for($i = 0; $i < $this->height; $i++) {
             for($j = 0; $j < $this->width; $j++) {
-                $gamma[$j][$i]['red'] = $c * pow($this->rgbArray[$j][$i]['red'], $y);
-                $gamma[$j][$i]['green'] = $c * pow($this->rgbArray[$j][$i]['green'], $y);
-                $gamma[$j][$i]['blue'] = $c * pow($this->rgbArray[$j][$i]['blue'], $y);
+                $gamma[$i][$j]['red'] = $c * pow($this->rgbArray[$i][$j]['red'], $y);
+                $gamma[$i][$j]['green'] = $c * pow($this->rgbArray[$i][$j]['green'], $y);
+                $gamma[$i][$j]['blue'] = $c * pow($this->rgbArray[$i][$j]['blue'], $y);
+
+                $gamma[$i][$j]['red'] = $this->checkRange($gamma[$i][$j]['red']);
+                $gamma[$i][$j]['green'] = $this->checkRange($gamma[$i][$j]['green']);
+                $gamma[$i][$j]['blue'] = $this->checkRange($gamma[$i][$j]['blue']);
             }
         }
 
-        $this->createImage($gamma);
-        return $this->getBrightness($gamma);
+
+        $this->createImage($gamma, self::GAMMA_FILENAME);
+        return $this->getBrightnessMatrix($gamma);
     }
 
-    public function createImage($rgdArray)
+    public function checkRange($color) {
+        if($color > 255)
+            return 255;
+        if($color < 0)
+            return 0;
+
+        return $color;
+    }
+
+    public function createImage($rgdArray, $filename)
     {
         $image = imagecreatetruecolor($this->width, $this->height);
 
         for($i = 0; $i < $this->height; $i++) {
             for($j = 0; $j < $this->width; $j++) {
                 imagesetpixel($image, $j, $i, imagecolorallocatealpha($image,
-                    $rgdArray[$j][$i]['red'],
-                    $rgdArray[$j][$i]['green'],
-                    $rgdArray[$j][$i]['blue'],
-                    $this->rgbArray[$j][$i]['alpha']
+                    $rgdArray[$i][$j]['red'],
+                    $rgdArray[$i][$j]['green'],
+                    $rgdArray[$i][$j]['blue'],
+                    $this->rgbArray[$i][$j]['alpha']
                     ));
             }
         }
 
-        imagejpeg($image, '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/1.jpeg');
+        imagejpeg($image, $filename);
+    }
+
+
+    /**
+     * @Route("/{id}/filter", name="image_filter")
+     * @Method("GET")
+     */
+    public function filterAction(Image $image)
+    {
+        $path = $this->getPath($image);
+        $this->rgbArray = $this->getRgbArray($path);
+        $this->bright = $this->getBrightnessMatrix($this->rgbArray);
+
+        $chart = $this->getBarChart($this->createFilter($this->bright), 'Гистограмма высокочастотного фильтра');
+        return $this->render('image/show_bar_chart.html.twig', array(
+            'chart' => $chart,
+            'image' => $image,
+        ));
+    }
+
+    public function createFilter($bright)
+    {
+        $bright_count = count($bright);
+        $f = [];
+        for($i = 0; $i < $bright_count; $i++) {
+            $line_count = count($bright[$i]);
+            for($j = 0; $j < $line_count; $j++ ){
+                $i1 = -1;
+                $i2 = 1;
+                $j1 = -1;
+                $j2 = 1;
+                if($i <= 0){
+                    $i1 = 0;
+                }
+                if($i >=($bright_count-1)){
+                    $i2 = 0;
+                }
+                if($j <= 0){
+                    $j1 = 0;
+                }
+                if($j >=($line_count - 1)){
+                    $j2 = 0;
+                }
+                $f[$i][$j] =
+                    (-1) * $bright[$i+$i1][$j+$j1] + (-1) * $bright[$i+$i1][$j] + (-1)*$bright[$i+$i1][$j+$j2]
+                    +(-1) * $bright[$i][$j+$j1] + 9 * $bright[$i][$j] + (-1) * $bright[$i][$j+$j2]
+                    +(-1) * $bright[$i+$i2][$j+$j1] + (-1) * $bright[$i+$i2][$j] + (-1) * $bright[$i+$i2][$j+$j2];
+
+
+            }
+
+
+
+        }
+
+        $this->createImage($f, self::FILTER_FILENAME);
+        return $f;
     }
 }
