@@ -24,9 +24,9 @@ class ImageController extends Controller
 {
     const SIZE = 256;
 
-    const GAMMA_FILENAME = '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/gamma.jpeg';
+    const GAMMA_FILENAME = '/home/oxana/projects/TsOS/LAB1/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/gamma.jpeg';
 
-    const FILTER_FILENAME = '/home/marina/labs/ImageProcessing(TsOS)/TsOS/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/filter.jpeg';
+    const FILTER_FILENAME = '/home/oxana/projects/TsOS/LAB1/web/uploads/Tsos/ImageProcessingBundle/Entity/Image/filter.jpeg';
 
     protected $width;
 
@@ -392,7 +392,7 @@ class ImageController extends Controller
         $this->rgbArray = $this->getRgbArray($path);
         $this->bright = $this->getBrightnessMatrix($this->rgbArray);
 
-        $chart = $this->getBarChart($this->createFilter($this->bright), 'Гистограмма высокочастотного фильтра');
+        $chart = $this->getBarChart($this->createFilter($this->rgbArray), 'Гистограмма высокочастотного фильтра');
         return $this->render('image/show_bar_chart.html.twig', array(
             'chart' => $chart,
             'image' => $image,
@@ -422,12 +422,25 @@ class ImageController extends Controller
                 if($j >=($line_count - 1)){
                     $j2 = 0;
                 }
-                $f[$i][$j] =
-                    (-1) * $bright[$i+$i1][$j+$j1] + (-1) * $bright[$i+$i1][$j] + (-1)*$bright[$i+$i1][$j+$j2]
-                    +(-1) * $bright[$i][$j+$j1] + 9 * $bright[$i][$j] + (-1) * $bright[$i][$j+$j2]
-                    +(-1) * $bright[$i+$i2][$j+$j1] + (-1) * $bright[$i+$i2][$j] + (-1) * $bright[$i+$i2][$j+$j2];
+                $f[$i][$j]['red'] =
+                    (-1) * $bright[$i+$i1][$j+$j1]['red'] + (-1) * $bright[$i+$i1][$j]['red'] + (-1)*$bright[$i+$i1][$j+$j2]['red']
+                    +(-1) * $bright[$i][$j+$j1]['red'] + 9 * $bright[$i][$j]['red'] + (-1) * $bright[$i][$j+$j2]['red']
+                    +(-1) * $bright[$i+$i2][$j+$j1]['red'] + (-1) * $bright[$i+$i2][$j]['red'] + (-1) * $bright[$i+$i2][$j+$j2]['red'];
+                $f[$i][$j]['red'] = $this->checkRange($f[$i][$j]['red']);
 
+                $f[$i][$j]['green'] =
+                    (-1) * $bright[$i+$i1][$j+$j1]['green'] + (-1) * $bright[$i+$i1][$j]['green'] + (-1)*$bright[$i+$i1][$j+$j2]['green']
+                    +(-1) * $bright[$i][$j+$j1]['green'] + 9 * $bright[$i][$j]['green'] + (-1) * $bright[$i][$j+$j2]['green']
+                    +(-1) * $bright[$i+$i2][$j+$j1]['green'] + (-1) * $bright[$i+$i2][$j]['green'] + (-1) * $bright[$i+$i2][$j+$j2]['green'];
 
+                $f[$i][$j]['green'] = $this->checkRange($f[$i][$j]['green']);
+
+                $f[$i][$j]['blue'] =
+                    (-1) * $bright[$i+$i1][$j+$j1]['blue'] + (-1) * $bright[$i+$i1][$j]['blue'] + (-1)*$bright[$i+$i1][$j+$j2]['blue']
+                    +(-1) * $bright[$i][$j+$j1]['blue'] + 9 * $bright[$i][$j]['blue'] + (-1) * $bright[$i][$j+$j2]['blue']
+                    +(-1) * $bright[$i+$i2][$j+$j1]['blue'] + (-1) * $bright[$i+$i2][$j]['blue'] + (-1) * $bright[$i+$i2][$j+$j2]['blue'];
+
+                $f[$i][$j]['blue'] = $this->checkRange($f[$i][$j]['blue']);
             }
 
 
@@ -435,6 +448,6 @@ class ImageController extends Controller
         }
 
         $this->createImage($f, self::FILTER_FILENAME);
-        return $f;
+        return $this->getBrightnessMatrix($f);
     }
 }
